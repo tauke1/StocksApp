@@ -10,10 +10,12 @@ using StocksApp.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 
@@ -29,6 +31,9 @@ namespace StocksApp.StocksApiClients.YahooFinance
         private const string HISTORY_EVENT = "history";
         private const string COOKIE_HEADER_NAME = "Set-Cookie";
         private const string API_NAME = "Yahoo Finance";
+        private string _cookie;
+        private string _crumb;
+        private object locker = new object();
         private readonly Regex _regexCrumb = new Regex("CrumbStore\":{\"crumb\":\"(?<crumb>.+?)\"}",
                             RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private readonly List<KeyValuePair<DateInterval, int>> _validIntervals = new List<KeyValuePair<DateInterval, int>>
@@ -47,7 +52,7 @@ namespace StocksApp.StocksApiClients.YahooFinance
             new KeyValuePair<DateInterval, int>(DateInterval.Month, 3)
         };
 
-        public YahooFinanceApiClient(IOptions<YahooFinanceConfiguration> configurationOptions, ICsvSerializer csvSerializer, 
+        public YahooFinanceApiClient(IOptions<YahooFinanceConfiguration> configurationOptions, ICsvSerializer csvSerializer,
             IDateTimeUtility dateTimeUtility)
         {
             if (dateTimeUtility == null)
@@ -80,14 +85,30 @@ namespace StocksApp.StocksApiClients.YahooFinance
             return API_NAME;
         }
 
-        public async Task<IList<StockInfo>> GetStocksHistoryAsync(string ticker, DateRange dateRange = null, SpecificDateInterval dateInterval = null)
+        public IList<KeyValuePair<DateInterval, int>> GetValidIntervals()
+        {
+            return _validIntervals.ToList();
+        }
+
+        public Task<IList<StockInfo>> GetStocksHistoryAsync(string ticker, DateRange dateRange = null, SpecificDateInterval dateInterval = null)
         {
             if (ticker == null)
                 throw new ArgumentNullException(nameof(ticker));
             if (ticker.Trim() == string.Empty)
-                throw new ArgumentException("Argument cannot be empty or contain only space characters",nameof(ticker));
+                throw new ArgumentException("Argument cannot be empty or contain only space characters", nameof(ticker));
 
-            (string _, string crumb) = await GetCookieAndCrumbAsync(ticker).ConfigureAwait(false);
+            // one retry used for refresh crumb in case of it's expired
+            return GetStocksHistoryAsyncWithRetry(ticker, dateRange, dateInterval, false);
+        }
+
+        private async Task<IList<StockInfo>> GetStocksHistoryAsyncWithRetry(string ticker, DateRange dateRange = null, SpecificDateInterval dateInterval = null, bool retryUsed = false)
+        {
+            if (ticker == null)
+                throw new ArgumentNullException(nameof(ticker));
+            if (ticker.Trim() == string.Empty)
+                throw new ArgumentException("Argument cannot be empty or contain only space characters", nameof(ticker));
+
+            (string _, string crumb) = await GetCookieAndCrumbAsync(ticker);
             var queryParametersDict = new Dictionary<string, string>();
             queryParametersDict["crumb"] = crumb;
             if (dateRange != null)
@@ -114,20 +135,32 @@ namespace StocksApp.StocksApiClients.YahooFinance
             }
 
             queryParametersDict["events"] = HISTORY_EVENT;
-            IEnumerable<YahooFinanceStockInfo> stockInfos = await MakeRequestAsync<YahooFinanceStockInfo>($"finance/download/{ticker}", HttpMethod.Get, queryParametersDict);
-            return stockInfos.Select(s => new StockInfo
+            try
             {
-                Close = s.Close,
-                Date = s.Date,
-                High = s.High,
-                Low = s.Low,
-                Open = s.Open
-            }).ToList();
-        }
+                IEnumerable<YahooFinanceStockInfo>  stockInfos = await MakeRequestAsync<YahooFinanceStockInfo>($"finance/download/{ticker}", HttpMethod.Get, queryParametersDict);
+                return stockInfos.Select(s => new StockInfo
+                {
+                    Close = s.Close,
+                    Date = s.Date,
+                    High = s.High,
+                    Low = s.Low,
+                    Open = s.Open
+                }).ToList();
+            }
+            catch (BadApiRequestException ex)
+            {
+                if (ex.StatusCode == (int)HttpStatusCode.Unauthorized)
+                {
+                    _cookie = null;
+                    _crumb = null;
+                    if (retryUsed)
+                        throw;
 
-        public IList<KeyValuePair<DateInterval, int>> GetValidIntervals()
-        {
-            return _validIntervals.ToList();
+                    return await GetStocksHistoryAsyncWithRetry(ticker, dateRange, dateInterval, true);
+                }
+
+                throw;
+            }
         }
 
         private async Task<IEnumerable<T>> MakeRequestAsync<T>(string route, HttpMethod method, IEnumerable<KeyValuePair<string, string>> queryParameters)
@@ -182,22 +215,40 @@ namespace StocksApp.StocksApiClients.YahooFinance
             if (ticker.Trim() == string.Empty)
                 throw new ArgumentException("Argument cannot be empty or contain only space characters", nameof(ticker));
 
-            string url = string.Format(_scrapeUrl, ticker);
-            using HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(_timeoutInSeconds) };
-            using (HttpResponseMessage response = await httpClient.GetAsync(url))
+            // this will make thread-safe update of _cookie and _crumb fields  
+            if (Monitor.TryEnter(locker, new TimeSpan(0, 0, _timeoutInSeconds)))
             {
-                response.EnsureSuccessStatusCode();
-                HttpHeaders httpHeaders = response.Headers;
-                IEnumerable<string> cookieHeaderValues;
-                if (!response.Headers.TryGetValues(COOKIE_HEADER_NAME, out cookieHeaderValues))
-                    throw new Exception($"{COOKIE_HEADER_NAME} header not found");
+                try
+                {
+                    if (_cookie == null || _crumb == null)
+                    {
+                        string url = string.Format(_scrapeUrl, ticker);
+                        using HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(_timeoutInSeconds) };
+                        using (HttpResponseMessage response = await httpClient.GetAsync(url))
+                        {
+                            response.EnsureSuccessStatusCode();
+                            HttpHeaders httpHeaders = response.Headers;
+                            IEnumerable<string> cookieHeaderValues;
+                            if (!response.Headers.TryGetValues(COOKIE_HEADER_NAME, out cookieHeaderValues))
+                                throw new InvalidOperationException($"{COOKIE_HEADER_NAME} header not found");
 
-                string cookie = cookieHeaderValues.Single();
-                string content = await response.Content.ReadAsStringAsync();
-                string crumb = GetCrumbs(content);
-                return (cookie, crumb);
+                            string cookie = cookieHeaderValues.Single();
+                            string content = await response.Content.ReadAsStringAsync();
+                            string crumb = GetCrumbs(content);
+                            _cookie = cookie;
+                            _crumb = crumb;
+                        }
+                    }
+
+                    return (_cookie, _crumb);
+                }
+                finally
+                {
+                    Monitor.Exit(locker);
+                }
             }
 
+            throw new TimeoutException("Cant update crumb and cookie due to locker timeout issue");
         }
 
         private string GetCrumbs(string html)
