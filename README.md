@@ -1,7 +1,7 @@
 # StocksApp
 StocksApp. 
 
-Sorry i did'nt write unit tests(did not have enough time), but i know that every program should be covered more than possible(ideally 100%)
+Sorry i did'nt write unit tests(did not have enough time), but i know that every program should be covered by unit tests more than possible(ideally 100%)
 
 Technologies used:
 1) Newtonsoft.Json for json serializing/deserializing
