@@ -8,8 +8,8 @@ namespace StocksApp.StocksApiClients.Exceptions
 {
     public class BadApiRequestException : Exception
     {
-        public int StatusCode { get; set; }
-        public string ResponseContect { get; set; }
+        public int StatusCode { get; }
+        public string ResponseContect { get; }
         public override string Message { get { return $"Stocks History API returned not successful\nHttpCode: {StatusCode}\nContent: {ResponseContect}"; } }
         public BadApiRequestException(int statusCode, string responseContent)
         {
