@@ -30,7 +30,7 @@ Solution structure:
 
 I implemented clients for 2 stocks API - Yahoo Finance and Tiingo, both of them implements IStocksApiClient interface, but there are some violation of Liskov substitution principle by different behavior in date interval choosing, because both of API's have different variations of date intervals, but i tried to use same interface for both of them
 
-1) Yahoo finance - 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
+1) Yahoo finance - 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo, **Note: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h** intervals not works and API returns "404 Not Found: AdjClose object not present in indicators", so i deleted them, and final list of intervals is **1d, 5d, 1wk, 1mo, 3mo**
 2) Tiingo - daily, weekly, monthly, annually
 
 You can choose certain client in last combobox in GUI
