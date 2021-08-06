@@ -85,6 +85,12 @@ namespace StocksApp
             }
         }
 
+        /// <summary>
+        /// Receive stocks historical data by input parameters
+        /// Note: used async void instead async Task because there is no way to use async Task with winforms event handlers
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private async void ReceiveStocksHistoryButton_Click(object sender, EventArgs e)
         {
             try
@@ -122,6 +128,7 @@ namespace StocksApp
                 using FolderBrowserDialog folderBrowserDialog = new FolderBrowserDialog();
                 folderBrowserDialog.Description = "Choose folder to save stock history data as .pdf file";
                 folderBrowserDialog.UseDescriptionForTitle = true;
+                // suggests to save results to pdf file in selected folder
                 DialogResult result = folderBrowserDialog.ShowDialog();
                 if (result == DialogResult.OK)
                 {
@@ -131,6 +138,7 @@ namespace StocksApp
                     File.WriteAllBytes(filePath, pdfContent);
                     MessageBox.Show($"File successfully saved at path {filePath}");
                     string argument = "/select, \"" + filePath + "\"";
+                    // opens folder where the file saved and select it in explorer
                     Process.Start("explorer.exe", argument);
                 }
             }

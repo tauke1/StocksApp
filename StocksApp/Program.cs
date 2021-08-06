@@ -28,9 +28,7 @@ namespace StocksApp
             var host = Host.CreateDefaultBuilder()
                 .ConfigureAppConfiguration((context, builder) =>
                 {
-                                // configuration file added, but not used
-                                // this is just example of loading configuration file for completness of my DI knowledge checking
-                                builder.AddJsonFile("appsettings.local.json", optional: false);
+                    builder.AddJsonFile("appsettings.local.json", optional: false);
                 })
                 .ConfigureServices((context, services) =>
                 {
@@ -44,6 +42,11 @@ namespace StocksApp
             Application.Run(host.Services.GetRequiredService<MainForm>());
         }
 
+        /// <summary>
+        /// Configure dependencies
+        /// </summary>
+        /// <param name="configuration"></param>
+        /// <param name="services"></param>
         private static void ConfigureServices(IConfiguration configuration, IServiceCollection services)
         {
             services.AddSingleton<MainForm>();
