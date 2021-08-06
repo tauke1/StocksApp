@@ -6,6 +6,9 @@ Technologies used:
 2) CsvHelper for csv serializing/deserializing
 3) Razor for html generation from template
 4) SelectPdf for pdf generation from html
+5) Microsoft.Extensions.Configuration for reading configs from appsettings.local.json file
+6) Microsoft.Extensions.DependencyInjection as a DI container
+7) NET. 5 and all used nuget packages are compatible with NET. 5
 
 This application downloads historical data from different stock API's by certain filters:
 1) Ticker name
