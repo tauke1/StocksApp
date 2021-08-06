@@ -23,7 +23,7 @@ Solution structure:
   Projects:
     
     1) StocksApp - windows form application. As a backend developer, i dont have big experience of developing desktop applications with right architecture, but i tried to store all logics(except html templates) it in single project
-      1.1) There is some not right sides of architecture, there are some business logic in Form, maybe add some Use Cases would be better
+      1.1) There is some not right sides of architecture, there are some business logic in Form, adding Use Cases layer may help to reach better architecture to unload logics from Forms
     2) StocksApp.Templates - razor class library to contain cshtml html templates
 
 I implemented clients for 2 stocks API - Yahoo Finance and Tiingo, both of them implements IStocksApiClient interface, but there are some violation of Liskov substitution principle by different behavior in date interval choosing, because both of API's have different variations of date intervals, but i tried to use same interface for both of them
