@@ -8,8 +8,6 @@ namespace StocksApp.StocksApiClients.Models.Enums
 {
     public enum DateInterval
     {
-        Minute,
-        Hour,
         Day,
         Week,
         Month,

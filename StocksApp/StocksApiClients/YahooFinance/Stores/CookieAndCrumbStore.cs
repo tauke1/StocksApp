@@ -76,6 +76,12 @@ namespace StocksApp.StocksApiClients.YahooFinance.Stores
             throw new TimeoutException("Cant update crumb and cookie due to locker timeout issue");
         }
 
+        public void ClearCookieAndCrumb()
+        {
+            _cookie = null;
+            _crumb = null;
+        }
+
         private string GetCrumbs(string html)
         {
             if (html == null)

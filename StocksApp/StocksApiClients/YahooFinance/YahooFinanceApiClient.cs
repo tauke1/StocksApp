@@ -31,17 +31,8 @@ namespace StocksApp.StocksApiClients.YahooFinance
         private readonly string _baseUrl;
         private const string HISTORY_EVENT = "history";
         private const string API_NAME = "Yahoo Finance";
-        private string _cookie;
-        private string _crumb;
         private readonly List<KeyValuePair<DateInterval, int>> _validIntervals = new List<KeyValuePair<DateInterval, int>>
         {
-            new KeyValuePair<DateInterval, int>(DateInterval.Minute, 1),
-            new KeyValuePair<DateInterval, int>(DateInterval.Minute, 2),
-            new KeyValuePair<DateInterval, int>(DateInterval.Minute, 5),
-            new KeyValuePair<DateInterval, int>(DateInterval.Minute, 30),
-            new KeyValuePair<DateInterval, int>(DateInterval.Minute, 60),
-            new KeyValuePair<DateInterval, int>(DateInterval.Minute, 90),
-            new KeyValuePair<DateInterval, int>(DateInterval.Hour, 1),
             new KeyValuePair<DateInterval, int>(DateInterval.Day, 1),
             new KeyValuePair<DateInterval, int>(DateInterval.Day, 5),
             new KeyValuePair<DateInterval, int>(DateInterval.Week, 1),
@@ -148,8 +139,7 @@ namespace StocksApp.StocksApiClients.YahooFinance
             {
                 if (ex.StatusCode == (int)HttpStatusCode.Unauthorized)
                 {
-                    _cookie = null;
-                    _crumb = null;
+                    _cookieAndCrumbStore.ClearCookieAndCrumb();
                     if (retryUsed)
                         throw;
 
@@ -214,12 +204,6 @@ namespace StocksApp.StocksApiClients.YahooFinance
             string intervalShort = null;
             switch (dateInterval)
             {
-                case DateInterval.Minute:
-                    intervalShort = "m";
-                    break;
-                case DateInterval.Hour:
-                    intervalShort = "h";
-                    break;
                 case DateInterval.Day:
                     intervalShort = "d";
                     break;
