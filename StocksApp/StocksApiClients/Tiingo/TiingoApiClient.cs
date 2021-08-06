@@ -21,7 +21,7 @@ namespace StocksApp.StocksApiClients.Tiingo
     {
         private readonly string _baseUrl;
         private readonly string _token;
-        private readonly int _timeoutInSeconds;
+        private readonly int _timeoutSeconds;
         private readonly IJsonSerializer _jsonSerializer;
         private const string API_NAME = "Tiingo";
         private readonly List<KeyValuePair<DateInterval, int>> _validIntervals = new List<KeyValuePair<DateInterval, int>>
@@ -45,9 +45,9 @@ namespace StocksApp.StocksApiClients.Tiingo
             if (configurationOptions.Value.Token == null)
                 throw new ArgumentException(
                     $"Property {nameof(configurationOptions.Value)}.{nameof(configurationOptions.Value.Token)} must not be null", nameof(configurationOptions));
-            if(configurationOptions.Value.TimeoutInSeconds < 0)
+            if(configurationOptions.Value.TimeoutSeconds < 0)
                 throw new ArgumentException(
-                    $"Property {nameof(configurationOptions.Value)}.{nameof(configurationOptions.Value.TimeoutInSeconds)} must be a positive integer", nameof(configurationOptions));
+                    $"Property {nameof(configurationOptions.Value)}.{nameof(configurationOptions.Value.TimeoutSeconds)} must be a positive integer", nameof(configurationOptions));
 
             if (jsonSerializer == null)
                 throw new ArgumentNullException(nameof(jsonSerializer));
@@ -56,7 +56,7 @@ namespace StocksApp.StocksApiClients.Tiingo
             _baseUrl = configuration.BaseUrl;
             _token = configuration.Token;
             _jsonSerializer = jsonSerializer;
-            _timeoutInSeconds = configuration.TimeoutInSeconds;
+            _timeoutSeconds = configuration.TimeoutSeconds;
         }
 
         public override string ToString()
@@ -134,7 +134,7 @@ namespace StocksApp.StocksApiClients.Tiingo
             request.Method = method;
             request.RequestUri = new Uri(url);
 
-            using HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(_timeoutInSeconds) };
+            using HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(_timeoutSeconds) };
             using HttpResponseMessage response = await httpClient.SendAsync(request);
             string responseBody = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode)

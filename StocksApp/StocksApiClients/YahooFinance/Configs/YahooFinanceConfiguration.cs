@@ -10,6 +10,6 @@ namespace StocksApp.StocksApiClients.YahooFinance.Configs
     {
         public string BaseUrl { get; set; }
         public string ScrapeUrl { get; set; }
-        public int TimeoutInSeconds { get; set; }
+        public int TimeoutSeconds { get; set; }
     }
 }

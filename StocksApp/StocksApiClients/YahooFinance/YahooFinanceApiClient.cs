@@ -6,6 +6,7 @@ using StocksApp.StocksApiClients.Models;
 using StocksApp.StocksApiClients.Models.Enums;
 using StocksApp.StocksApiClients.YahooFinance.Configs;
 using StocksApp.StocksApiClients.YahooFinance.Models;
+using StocksApp.StocksApiClients.YahooFinance.Stores;
 using StocksApp.Utilities;
 using System;
 using System.Collections.Generic;
@@ -23,19 +24,15 @@ namespace StocksApp.StocksApiClients.YahooFinance
 {
     public class YahooFinanceApiClient : IYahooFinanceApiClient
     {
+        private readonly CookieAndCrumbStore _cookieAndCrumbStore;
         private readonly ICsvSerializer _csvSerializer;
         private readonly IDateTimeUtility _dateTimeUtility;
-        private readonly string _scrapeUrl;
+        private readonly int _timeoutSeconds;
         private readonly string _baseUrl;
-        private readonly int _timeoutInSeconds;
         private const string HISTORY_EVENT = "history";
-        private const string COOKIE_HEADER_NAME = "Set-Cookie";
         private const string API_NAME = "Yahoo Finance";
         private string _cookie;
         private string _crumb;
-        private object locker = new object();
-        private readonly Regex _regexCrumb = new Regex("CrumbStore\":{\"crumb\":\"(?<crumb>.+?)\"}",
-                            RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private readonly List<KeyValuePair<DateInterval, int>> _validIntervals = new List<KeyValuePair<DateInterval, int>>
         {
             new KeyValuePair<DateInterval, int>(DateInterval.Minute, 1),
@@ -68,16 +65,16 @@ namespace StocksApp.StocksApiClients.YahooFinance
             if (configurationOptions.Value.ScrapeUrl == null)
                 throw new ArgumentException(
                     $"Property {nameof(configurationOptions.Value)}.{nameof(configurationOptions.Value.ScrapeUrl)} must not be null", nameof(configurationOptions));
-            if (configurationOptions.Value.TimeoutInSeconds < 0)
+            if (configurationOptions.Value.TimeoutSeconds < 0)
                 throw new ArgumentException(
-                    $"Property {nameof(configurationOptions.Value)}.{nameof(configurationOptions.Value.TimeoutInSeconds)} must be a positive integer", nameof(configurationOptions));
+                    $"Property {nameof(configurationOptions.Value)}.{nameof(configurationOptions.Value.TimeoutSeconds)} must be a positive integer", nameof(configurationOptions));
 
             YahooFinanceConfiguration configuration = configurationOptions.Value;
             _csvSerializer = csvSerializer;
             _baseUrl = configuration.BaseUrl;
-            _scrapeUrl = configuration.ScrapeUrl;
-            _timeoutInSeconds = configuration.TimeoutInSeconds;
+            _timeoutSeconds = configuration.TimeoutSeconds;
             _dateTimeUtility = dateTimeUtility;
+            _cookieAndCrumbStore = new CookieAndCrumbStore(configuration.ScrapeUrl, _timeoutSeconds);
         }
 
         public override string ToString()
@@ -108,7 +105,7 @@ namespace StocksApp.StocksApiClients.YahooFinance
             if (ticker.Trim() == string.Empty)
                 throw new ArgumentException("Argument cannot be empty or contain only space characters", nameof(ticker));
 
-            (string _, string crumb) = await GetCookieAndCrumbAsync(ticker);
+            (string _, string crumb) = await _cookieAndCrumbStore.GetCookieAndCrumbAsync(ticker);
             var queryParametersDict = new Dictionary<string, string>();
             queryParametersDict["crumb"] = crumb;
             if (dateRange != null)
@@ -199,79 +196,13 @@ namespace StocksApp.StocksApiClients.YahooFinance
             string url = $"{_baseUrl}/{route}?{queryString}";
             var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Method = method;
-            using HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(_timeoutInSeconds) };
+            using HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(_timeoutSeconds) };
             using HttpResponseMessage response = await httpClient.SendAsync(request);
             string responseBody = await response.Content.ReadAsStringAsync();
             if (!response.IsSuccessStatusCode)
                 throw new BadApiRequestException((int)response.StatusCode, responseBody);
 
             return responseBody;
-        }
-
-        private async Task<(string, string)> GetCookieAndCrumbAsync(string ticker)
-        {
-            if (ticker == null)
-                throw new ArgumentNullException(nameof(ticker));
-            if (ticker.Trim() == string.Empty)
-                throw new ArgumentException("Argument cannot be empty or contain only space characters", nameof(ticker));
-
-            // this will make thread-safe update of _cookie and _crumb fields  
-            if (Monitor.TryEnter(locker, new TimeSpan(0, 0, _timeoutInSeconds)))
-            {
-                try
-                {
-                    if (_cookie == null || _crumb == null)
-                    {
-                        string url = string.Format(_scrapeUrl, ticker);
-                        using HttpClient httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(_timeoutInSeconds) };
-                        using (HttpResponseMessage response = await httpClient.GetAsync(url))
-                        {
-                            response.EnsureSuccessStatusCode();
-                            HttpHeaders httpHeaders = response.Headers;
-                            IEnumerable<string> cookieHeaderValues;
-                            if (!response.Headers.TryGetValues(COOKIE_HEADER_NAME, out cookieHeaderValues))
-                                throw new InvalidOperationException($"{COOKIE_HEADER_NAME} header not found");
-
-                            string cookie = cookieHeaderValues.Single();
-                            string content = await response.Content.ReadAsStringAsync();
-                            string crumb = GetCrumbs(content);
-                            _cookie = cookie;
-                            _crumb = crumb;
-                        }
-                    }
-
-                    return (_cookie, _crumb);
-                }
-                finally
-                {
-                    Monitor.Exit(locker);
-                }
-            }
-
-            throw new TimeoutException("Cant update crumb and cookie due to locker timeout issue");
-        }
-
-        private string GetCrumbs(string html)
-        {
-            if (html == null)
-                throw new ArgumentNullException(nameof(html));
-            if (html.Trim() == string.Empty)
-                throw new ArgumentException("Argument cannot be empty or contain only space characters", nameof(html));
-
-            string crumb = null;
-            MatchCollection matches = _regexCrumb.Matches(html);
-            if (matches.Count == 0)
-                throw new Exception("Cant find crumbs in given html");
-
-            if (matches.Count > 0)
-            {
-                crumb = matches[0].Groups["crumb"].Value;
-                //fixed unicode character 'SOLIDUS'
-                if (crumb.Length != 11)
-                    crumb = crumb.Replace("\\u002F", "/");
-            }
-
-            return crumb;
         }
 
         private string DateIntervalToString(SpecificDateInterval specificDateInterval)

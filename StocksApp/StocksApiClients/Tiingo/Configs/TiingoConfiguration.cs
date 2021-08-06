@@ -10,6 +10,6 @@ namespace StocksApp.StocksApiClients.Tiingo.Configs
     {
         public string BaseUrl { get; set; }
         public string Token { get; set; }
-        public int TimeoutInSeconds { get; set; }
+        public int TimeoutSeconds { get; set; }
     }
 }
