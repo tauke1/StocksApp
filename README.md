@@ -9,3 +9,8 @@ This application downloads historical data from different stock API's by certain
 5) API select
 
 And then suggests to save obtained historical data to pdf file in user selected folder
+
+Solution structure:
+  Projects:
+    1) StocksApp - windows form application. As a backend developer, i dont have big experience of developing desktop applications with right architecture, but i tried to divide it in single project
+    2) StocksApp.Templates - razor class library to contain cshtml html templ
