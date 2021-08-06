@@ -6,6 +6,7 @@ using StocksApp.StocksApiClients.Models;
 using StocksApp.StocksApiClients.Models.Enums;
 using StocksApp.StocksApiClients.YahooFinance.Configs;
 using StocksApp.StocksApiClients.YahooFinance.Models;
+using StocksApp.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +22,7 @@ namespace StocksApp.StocksApiClients.YahooFinance
     public class YahooFinanceApiClient : IYahooFinanceApiClient
     {
         private readonly ICsvSerializer _csvSerializer;
+        private readonly IDateTimeUtility _dateTimeUtility;
         private readonly string _scrapeUrl;
         private readonly string _baseUrl;
         private readonly int _timeoutInSeconds;
@@ -45,8 +47,11 @@ namespace StocksApp.StocksApiClients.YahooFinance
             new KeyValuePair<DateInterval, int>(DateInterval.Month, 3)
         };
 
-        public YahooFinanceApiClient(IOptions<YahooFinanceConfiguration> configurationOptions, ICsvSerializer csvSerializer)
+        public YahooFinanceApiClient(IOptions<YahooFinanceConfiguration> configurationOptions, ICsvSerializer csvSerializer, 
+            IDateTimeUtility dateTimeUtility)
         {
+            if (dateTimeUtility == null)
+                throw new ArgumentNullException(nameof(dateTimeUtility));
             if (configurationOptions == null)
                 throw new ArgumentNullException(nameof(configurationOptions));
             if (configurationOptions.Value == null)
@@ -67,6 +72,7 @@ namespace StocksApp.StocksApiClients.YahooFinance
             _baseUrl = configuration.BaseUrl;
             _scrapeUrl = configuration.ScrapeUrl;
             _timeoutInSeconds = configuration.TimeoutInSeconds;
+            _dateTimeUtility = dateTimeUtility;
         }
 
         public override string ToString()
@@ -89,13 +95,15 @@ namespace StocksApp.StocksApiClients.YahooFinance
                 if (dateRange.StartDate.HasValue)
                 {
                     DateTime startDate = dateRange.StartDate.Value;
-                    queryParametersDict["period1"] = ((DateTimeOffset)startDate).ToUnixTimeSeconds().ToString();
+                    long startDateEpoch = _dateTimeUtility.GetEpochTime(startDate);
+                    queryParametersDict["period1"] = startDateEpoch.ToString();
                 }
 
                 if (dateRange.EndDate.HasValue)
                 {
                     DateTime endDate = dateRange.EndDate.Value;
-                    queryParametersDict["period2"] = ((DateTimeOffset)endDate).ToUnixTimeSeconds().ToString();
+                    long endDateEpoch = _dateTimeUtility.GetEpochTime(endDate);
+                    queryParametersDict["period2"] = endDateEpoch.ToString();
                 }
             }
 
