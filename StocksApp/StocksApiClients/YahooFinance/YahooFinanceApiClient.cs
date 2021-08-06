@@ -96,7 +96,9 @@ namespace StocksApp.StocksApiClients.YahooFinance
             if (ticker.Trim() == string.Empty)
                 throw new ArgumentException("Argument cannot be empty or contain only space characters", nameof(ticker));
 
-            (string _, string crumb) = await _cookieAndCrumbStore.GetCookieAndCrumbAsync(ticker);
+            // if retried, it's mean that we meen refresh cookie and crumb
+            bool needRefreshCookieAndCrumb = retryUsed;
+            (string _, string crumb) = await _cookieAndCrumbStore.GetCookieAndCrumbAsync(ticker, needRefreshCookieAndCrumb);
             var queryParametersDict = new Dictionary<string, string>();
             queryParametersDict["crumb"] = crumb;
             if (dateRange != null)
@@ -139,7 +141,6 @@ namespace StocksApp.StocksApiClients.YahooFinance
             {
                 if (ex.StatusCode == (int)HttpStatusCode.Unauthorized)
                 {
-                    _cookieAndCrumbStore.ClearCookieAndCrumb();
                     if (retryUsed)
                         throw;
 

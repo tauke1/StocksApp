@@ -33,7 +33,7 @@ namespace StocksApp.StocksApiClients.YahooFinance.Stores
             _baseUrl = baseUrl;
         }
 
-        public async Task<(string, string)> GetCookieAndCrumbAsync(string ticker)
+        public async Task<(string, string)> GetCookieAndCrumbAsync(string ticker, bool forceRefreshCookieAndCrumb)
         {
             if (ticker == null)
                 throw new ArgumentNullException(nameof(ticker));
@@ -45,6 +45,12 @@ namespace StocksApp.StocksApiClients.YahooFinance.Stores
             {
                 try
                 {
+                    if (forceRefreshCookieAndCrumb)
+                    {
+                        _cookie = null;
+                        _crumb = null;
+                    }
+
                     if (_cookie == null || _crumb == null)
                     {
                         string url = string.Format(_baseUrl, ticker);
@@ -74,12 +80,6 @@ namespace StocksApp.StocksApiClients.YahooFinance.Stores
             }
 
             throw new TimeoutException("Cant update crumb and cookie due to locker timeout issue");
-        }
-
-        public void ClearCookieAndCrumb()
-        {
-            _cookie = null;
-            _crumb = null;
         }
 
         private string GetCrumbs(string html)
