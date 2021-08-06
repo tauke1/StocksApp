@@ -10,7 +10,9 @@ namespace StocksApp.Utilities
     {
         public long GetEpochTime(DateTime dateTime)
         {
-            return ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
+            DateTimeOffset dateTimeOffset = (DateTimeOffset)dateTime;
+            // returns epoch time relative to user's time zone,
+            return dateTimeOffset.ToUnixTimeSeconds();
         }
     }
 }
