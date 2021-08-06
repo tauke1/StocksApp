@@ -95,6 +95,7 @@ namespace StocksApp
         {
             try
             {
+                // disable controls while sending request to stocks api or validation of inputs
                 ChangeEnabledStatusesOfControls(false);
                 ReceiveStocksHistoryRequest inputValues = GetInputValues();
                 DateRange dateRange = new DateRange(inputValues.StartDate, inputValues.EndDate);
@@ -148,6 +149,7 @@ namespace StocksApp
             }
             finally
             {
+                // enable controls in any case
                 ChangeEnabledStatusesOfControls(true);
             }
         }
